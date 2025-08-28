@@ -83,7 +83,52 @@ app.get("/results", async (req, res) => {
 });
 
 
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log("GET /results to see detection results");
 });
+
+// Extra: Simple Unit Tests for Fallback Logic
+if (process.env.NODE_ENV === "test") {
+  (async () => {
+    const testQuestions = [
+      "Tell me about yourself",
+      "Why this company?",
+      "Greatest weakness?",
+      "Describe a challenge you solved",
+      "Where do you see yourself in 5 years?",
+      "Invalid question"
+    ];
+
+    let passed = 0, failed = 0;
+    for (let q of testQuestions) {
+      try {
+        if (questions.includes(q)) {
+          const result = await detectWithFallback(q);
+          if (result && result.model && result.confidence && result.result && result.timeTaken >= 0) {
+            console.log(`[Test] Success for question: "${q}" | Model: ${result.model}`);
+            passed++;
+          } else {
+            console.log(`[Test] Failed: Unexpected result shape for question: "${q}"`);
+            failed++;
+          }
+        } else {
+          try {
+            await detectWithFallback(q);
+            console.log(`[Test] Failed: Should not succeed for invalid question: "${q}"`);
+            failed++;
+          } catch (err) {
+            console.log(`[Test] Success: Properly failed for invalid question: "${q}"`);
+            passed++;
+          }
+        }
+      } catch (err) {
+        console.log(`[Test] Error for question: "${q}": ${err.message}`);
+        failed++;
+      }
+    }
+    console.log(`\nUnit Test Results: Passed: ${passed}, Failed: ${failed}`);
+    process.exit(failed > 0 ? 1 : 0);
+  })();
+}
